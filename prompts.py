@@ -24,15 +24,15 @@ Do not output introductions, analysis, features, or commentary
 Return just result — no reasoning, no summary, no preamble.
 """
 
-company = [
-    "Energy Portfolio",
-    "DocuSign",
-    "Atomus Limited",
-    "Activ Surgical",
-    "Learning Technologies Group (PINX: LTTHF)",
-    "Clari",
-    "Allego",
-    "Accurx",
-    "Inprova (non-energy procurement division)",
-    "Engie Impact"
-]
+def get_return_prompts(llm_return):
+    """
+    Generate prompts for further analysis or summarization based on the LLM's return value.
+    Args:
+        llm_return (str): The output returned by the LLM.
+    Returns:
+        dict: A dictionary of prompts keyed by their intended analysis.
+    """
+    new_prompts = defaultdict(list)
+    for key, value in llm_return.items():
+        new_prompts[key].append(value)
+

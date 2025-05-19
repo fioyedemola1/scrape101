@@ -30,8 +30,8 @@ BATCH_SIZE = int(os.getenv("BATCH_SIZE", 10000))
 class Crawler:
     def __init__(self):
         self.initial_crawl = True
-        # Bright Data proxy configuration
-        proxy_url = os.getenv('BROWSER_WS')
+        # Hardcoded Bright Data proxy configuration
+        proxy_url = "wss://brd-customer-hl_24efa381-zone-scraping_browser1:mrhgizqamx9h@brd.superproxy.io:9222"
         
         # Initialize Supabase client
         supabase_url = os.getenv('SUPABASE_URL')
@@ -51,7 +51,8 @@ class Crawler:
                     "--disable-dev-shm-usage",
                     "--disable-setuid-sandbox",
                     "--disable-infobars",
-                    "--window-size=1920,1080"
+                    "--window-size=1920,1080",
+                    f"--proxy-server={proxy_url}" if proxy_url else ""
                 ],
                 "headers": {
                     "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
@@ -64,9 +65,6 @@ class Crawler:
                     "Sec-Fetch-Mode": "navigate",
                     "Sec-Fetch-Site": "none",
                     "Sec-Fetch-User": "?1"
-                },
-                "proxy": {
-                    "server": proxy_url,
                 },
                 "max_depth": 3,
                 "max_pages": 50,
@@ -89,6 +87,12 @@ class Crawler:
                 logger.warning("No content to save to Supabase")
                 return None
             
+            # Log the content length and first 100 characters
+            content_length = len(self.markdown_content)
+            content_preview = self.markdown_content[:100] + "..." if len(self.markdown_content) > 100 else self.markdown_content
+            logger.info(f"Attempting to save content of length {content_length}")
+            logger.info(f"Content preview: {content_preview}")
+            
             # Save raw content
             content_data = {
                 "url": self.base_url,
@@ -97,14 +101,39 @@ class Crawler:
                 "domain": self.base_url.split("//")[-1].split("/")[0]
             }
             
-            content_result = self.supabase.table("scraped_datav2").insert(content_data).execute()
-            logger.info(f"Successfully saved content from {self.base_url} to Supabase")
+            # Log the data being sent
+            logger.info(f"Preparing to save data to Supabase for URL: {self.base_url}")
+            logger.info(f"Data keys: {list(content_data.keys())}")
             
-            return {
-                "content": content_result
-            }
+            # Test database connection
+            try:
+                test_result = self.supabase.table("scraped_datav2").select("count", count='exact').execute()
+                logger.info(f"Database connection test successful: {test_result}")
+            except Exception as e:
+                logger.error(f"Database connection test failed: {str(e)}")
+                raise
+            
+            # Attempt to save data
+            logger.info(f"Executing insert for {self.base_url}")
+            content_result = self.supabase.table("scraped_datav2").insert(content_data).execute()
+            
+            if content_result.data:
+                logger.info(f"Successfully saved content from {self.base_url} to Supabase")
+                logger.info(f"Response data: {content_result.data}")
+                return {
+                    "content": content_result
+                }
+            else:
+                logger.warning(f"No data returned from Supabase insert for {self.base_url}")
+                logger.warning(f"Response: {content_result}")
+                return None
+            
         except Exception as e:
             logger.error(f"Error saving to Supabase: {str(e)}")
+            logger.error(f"Failed data: {content_data if 'content_data' in locals() else 'No data'}")
+            # Log the full error details
+            import traceback
+            logger.error(f"Full error traceback: {traceback.format_exc()}")
             raise
 
     async def crawl(self, url, crawl_pages_limit=2):
@@ -114,11 +143,14 @@ class Crawler:
                 
             async with AsyncWebCrawler(**self.crawler_options) as crawler:
                 if not url:
+                    logger.warning("Empty URL provided")
                     return None
                 if url in self.visited_urls:
+                    logger.info(f"URL already visited: {url}")
                     return None
                 
                 if self.crawl_pages_tracker >= crawl_pages_limit:
+                    logger.info(f"Reached page limit for {url}")
                     return None
                 
                 self.visited_urls.add(url)
@@ -130,9 +162,20 @@ class Crawler:
                     if self.initial_crawl:
                         self.markdown_content = result.markdown
                         self.initial_crawl = False
-                    
+                        logger.info(f"Successfully crawled and got content from {url}")
+                        logger.info(f"Content length: {len(self.markdown_content)}")
+                    else:
+                        logger.info(f"Got content but not initial crawl for {url}")
+                else:
+                    logger.warning(f"No markdown content returned for {url}")
+                    if result:
+                        logger.warning(f"Result type: {type(result)}")
+                        logger.warning(f"Result attributes: {dir(result)}")
+                
         except Exception as e:
             logger.error(f"An error occurred while crawling {url}: {str(e)}")
+            import traceback
+            logger.error(f"Full error traceback: {traceback.format_exc()}")
             return None
 
 async def process_urls(urls: List[str], batch_size: int = 5, sequential: bool = False):
