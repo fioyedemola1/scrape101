@@ -1,0 +1,27 @@
+version: '3.8'
+
+services:
+  scraper:
+    build: .
+    volumes:
+      - .:/app
+    environment:
+      - SUPABASE_URL=${SUPABASE_URL}
+      - SUPABASE_KEY=${SUPABASE_KEY}
+      - BROWSER_WS=${BROWSER_WS}
+      - OLLAMA_MODEL=${OLLAMA_MODEL:-llama2}
+      - OLLAMA_HOST=${OLLAMA_HOST:-http://159.203.3.54}
+      - BATCH_INDEX=${BATCH_INDEX:-0}
+      - BATCH_SIZE=${BATCH_SIZE:-10000}
+      - SEQUENTIAL=${SEQUENTIAL:-false}
+    command: >
+      sh -c "playwright install chromium &&
+             playwright install-deps &&
+             python scraper_groq.py"
+    networks:
+      - scraper-network
+
+networks:
+  scraper-network:
+    driver: bridge
+
