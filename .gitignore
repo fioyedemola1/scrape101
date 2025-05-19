@@ -50,7 +50,6 @@ htmlcov/
 .pytest_cache/
 
 # Project specific
-Buyers.csv
 scraped_data/
 models/
 *.gguf 
