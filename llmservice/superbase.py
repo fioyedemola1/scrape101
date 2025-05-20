@@ -17,7 +17,7 @@ MAX_TOKENS = 4000
 OVERLAP = 200
 
 # Hugging Face authentication
-HF_TOKEN =  "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"
+HF_TOKEN = os.getenv("HF_TOKEN")
 if not HF_TOKEN:
     raise ValueError("Please set HUGGINGFACE_TOKEN in your .env file")
 login(token=HF_TOKEN)
