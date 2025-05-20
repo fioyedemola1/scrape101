@@ -4,17 +4,38 @@
 TOTAL_RECORDS=940  # Updated to match actual number of records
 BATCH_SIZE=25  # Number of records per batch
 TOTAL_BATCHES=$(( (TOTAL_RECORDS + BATCH_SIZE - 1) / BATCH_SIZE ))  # Ceiling division
-MAX_PARALLEL=8  # Maximum number of parallel processes
+MAX_PARALLEL=1  # Maximum number of parallel processes
+
+# Host configuration
+# HOSTS=(
+#     "https://6895-35-240-135-62.ngrok-free.app"
+#     "https://159.203.3.54"
+#     "https://your-third-host.com"  # Replace with your third host
+# )
+HOSTS=(
+    "https://dcd1c083b621a4f5895d19cd862ea3dfb.clg07azjl.paperspacegradient.com/"
+    # "https://159.203.3.54"
+    # "https://your-third-host.com"  # Replace with your third host
+)
+HOST_COUNT=${#HOSTS[@]}
+
+# Function to get next host in rotation
+get_next_host() {
+    local batch_index=$1
+    local host_index=$((batch_index % HOST_COUNT))
+    echo "${HOSTS[$host_index]}"
+}
 
 # Function to run a single batch
 run_batch() {
     local batch_index=$1
     local start_record=$((batch_index * BATCH_SIZE))
     local end_record=$((start_record + BATCH_SIZE - 1))
-    echo "Starting batch $batch_index (Records $start_record-$end_record)"
+    local host=$(get_next_host $batch_index)
+    echo "Starting batch $batch_index (Records $start_record-$end_record) on host: $host"
     
-    # Run superbase.py with the specific batch range
-    python3 "superbase.py" --start $start_record --end $end_record
+    # Run superbase.py with the specific batch range and host
+    python3 "superbase.py" --start $start_record --end $end_record --host "$host"
 }
 
 # Function to check running processes
