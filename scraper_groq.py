@@ -31,7 +31,7 @@ class Crawler:
     def __init__(self):
         self.initial_crawl = True
         # Hardcoded Bright Data proxy configuration
-        proxy_url = "wss://brd-customer-hl_24efa381-zone-scraping_browser1:mrhgizqamx9h@brd.superproxy.io:9222"
+        self.proxy_url = "wss://brd-customer-hl_24efa381-zone-scraping_browser1:mrhgizqamx9h@brd.superproxy.io:9222"
         
         # Initialize Supabase client
         supabase_url = os.getenv('SUPABASE_URL')
@@ -52,7 +52,6 @@ class Crawler:
                     "--disable-setuid-sandbox",
                     "--disable-infobars",
                     "--window-size=1920,1080",
-                    f"--proxy-server={proxy_url}" if proxy_url else ""
                 ],
                 "headers": {
                     "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
@@ -66,6 +65,7 @@ class Crawler:
                     "Sec-Fetch-Site": "none",
                     "Sec-Fetch-User": "?1"
                 },
+                "server": self.proxy_url,
                 "max_depth": 3,
                 "max_pages": 50,
                 "delay": 1.0,

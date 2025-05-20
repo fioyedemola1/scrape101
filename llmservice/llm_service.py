@@ -15,7 +15,7 @@ def query_llm( prompt: str) -> str:
         
         client = Client(
         # host='http://159.203.3.54',
-        host='https://baa5-34-41-134-125.ngrok-free.app',
+        host='https://6895-35-240-135-62.ngrok-free.app',
         headers={'x-some-header': 'some-value'}
         )
     

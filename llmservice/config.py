@@ -2,10 +2,6 @@ import os
 from ollama import Client
 import csv
 
-# DeepSeek API Configuration
-DEEPSEEK_API_KEY = "sk-80f5b3cd725340a487b7139df8f388d4" # Replace with your actual API key
-DEEPSEEK_API_URL = "https://api.deepseek.com/v1/chat/completions"
-
 # System prompt for the LLM
 SYSTEM_PROMPT = """You are a senior M&A analyst and ex-investment banker with deep experience in commercial due diligence and buyer targeting.
 Your role is to analyze company websites and extract clear, structured business information for use in buy-side and sell-side M&A processes.
