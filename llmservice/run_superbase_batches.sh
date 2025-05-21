@@ -4,16 +4,11 @@
 TOTAL_RECORDS=940  # Updated to match actual number of records
 BATCH_SIZE=25  # Number of records per batch
 TOTAL_BATCHES=$(( (TOTAL_RECORDS + BATCH_SIZE - 1) / BATCH_SIZE ))  # Ceiling division
-MAX_PARALLEL=1  # Maximum number of parallel processes
+MAX_PARALLEL=8  # Maximum number of parallel processes
 
-# Host configuration
-# HOSTS=(
-#     "https://6895-35-240-135-62.ngrok-free.app"
-#     "https://159.203.3.54"
-#     "https://your-third-host.com"  # Replace with your third host
-# )
+d
 HOSTS=(
-    "https://dcd1c083b621a4f5895d19cd862ea3dfb.clg07azjl.paperspacegradient.com/"
+    "https://da6ad0415251d49b1a76b134ba420d9eb.clg07azjl.paperspacegradient.com/"
     # "https://159.203.3.54"
     # "https://your-third-host.com"  # Replace with your third host
 )

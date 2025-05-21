@@ -2,7 +2,7 @@ import os
 from supabase import create_client
 from dotenv import load_dotenv
 from llm_service import query_llm
-from prompts import get_tagging_prompts, get_return_prompts
+from prompts import get_tagging_prompts, extract_prompt_answers
 from datetime import datetime
 import time
 import argparse
@@ -16,15 +16,22 @@ load_dotenv()
 MAX_TOKENS = 4000
 OVERLAP = 200
 
+# Initialize Supabase client
+supabase_url = os.getenv("SUPABASE_URL")
+supabase_key = os.getenv("SUPABASE_KEY")
+supabase = create_client(supabase_url, supabase_key)
+
+client = Client(
+    host='https://da6ad0415251d49b1a76b134ba420d9eb.clg07azjl.paperspacegradient.com/',
+)
+
 # Hugging Face authentication
 HF_TOKEN = os.getenv("HF_TOKEN")
 if not HF_TOKEN:
     raise ValueError("Please set HUGGINGFACE_TOKEN in your .env file")
 login(token=HF_TOKEN)
 
-client = Client(
-    host='https://da5eba24f40844c9ba307e11f8b8a202f.clg07azjl.paperspacegradient.com/',
-)
+
 
 if 'llama3.3:70b' in client.list():
     print("llama3.3:70b is available")
@@ -34,35 +41,25 @@ else:
 
 def extract_clean_text(raw_text):
     # Remove HTML/XML tags
-    clean = re.sub(r'<[^>]+>', '', raw_text)
-
-    # Remove URLs
-    clean = re.sub(r'http[s]?://(?:[a-zA-Z]|[0-9]|[$-_@.&+]|[!*\\(\\),]|(?:%[0-9a-fA-F][0-9a-fA-F]))+', '', clean)
+    clean = re.sub(r'<[^>]+>', '', raw_text) \
+           .replace('&', 'and') \
+           .strip()
     
-    # Remove email addresses
-    clean = re.sub(r'[\w\.-]+@[\w\.-]+\.\w+', '', clean)
+    patterns = [
+        (r'http[s]?://(?:[a-zA-Z]|[0-9]|[$-_@.&+]|[!*\\(\\),]|(?:%[0-9a-fA-F][0-9a-fA-F]))+', ''), # URLs
+        (r'[\w\.-]+@[\w\.-]+\.\w+', ''), # Emails
+        (r'[^\w\s.,!?-]', ' '), # Special chars
+        (r'[^\x00-\x7F]+', ' '), # Non-ASCII
+        (r'\s+', ' '), # Multiple spaces
+        (r'\n\s*\n', '\n'), # Empty lines
+        (r'[\[\](){}]', ''), # Brackets
+        (r'[#@]', '') # Hashtags/mentions
+    ]
     
-    # Remove special characters and symbols
-    clean = re.sub(r'[^\w\s.,!?-]', ' ', clean)
-    
-    # Remove non-ASCII characters
-    clean = re.sub(r'[^\x00-\x7F]+', ' ', clean)
-    
-    # Remove multiple spaces/newlines
-    clean = re.sub(r'\s+', ' ', clean)
-    
-    # Remove leading/trailing whitespace
-    clean = clean.strip()
-    
-    # Remove empty lines
-    clean = re.sub(r'\n\s*\n', '\n', clean)
-    
-    # Remove common noise patterns
-    clean = re.sub(r'[\[\](){}]', '', clean)  # Remove brackets and parentheses
-    clean = re.sub(r'[#@]', '', clean)  # Remove hashtags and mentions
-    clean = re.sub(r'[&]', 'and', clean)  # Replace & with 'and'
-    
+    for pattern, repl in patterns:
+        clean = re.sub(pattern, repl, clean)
     return clean.strip()
+
 
 def tokenize_text(text):
     """Tokenize text and split into chunks."""
@@ -71,7 +68,6 @@ def tokenize_text(text):
     # Use a tokenizer that can handle longer sequences
     tokenizer = AutoTokenizer.from_pretrained("sentence-transformers/paraphrase-MiniLM-L6-v2")
     chunks = []
-    
     # Split text into sentences first
     sentences = re.split(r'(?<=[.!?])\s+', text)
     current_chunk = []
@@ -104,10 +100,6 @@ def tokenize_text(text):
 
 
 
-# Initialize Supabase client
-supabase_url = os.getenv("SUPABASE_URL")
-supabase_key = os.getenv("SUPABASE_KEY")
-supabase = create_client(supabase_url, supabase_key)
 
 def process_single_row(row, host=None):
     """Process a single row of data and return the analysis results."""
@@ -124,18 +116,15 @@ def process_single_row(row, host=None):
             print(f"Processing chunk {i+1}/{len(chunks)} for {row['url']}")
             prompts = get_tagging_prompts(chunk)
             
-            for prompt_key, prompt_value in prompts.items():
                 # Get response from LLM
-                response = query_llm(prompt_value, client)
-                print(f"Response received for {row['url']} chunk {i+1}")
-                
-                # If this is the first chunk, initialize the key
-                if prompt_key not in all_analysis_data:
-                    all_analysis_data[prompt_key] = response
-                else:
-                    # Combine responses for subsequent chunks
-                    all_analysis_data[prompt_key] += " " + response
-
+            start_time = time.time()
+            response = query_llm(prompts, client)
+            end_time = time.time()
+            duration = end_time - start_time
+            print(f"Response received for {row['url']} chunk {i+1} (took {duration:.2f}s)")
+            values = extract_prompt_answers(response)
+            all_analysis_data.update(values)
+            # If this is the first chunk, initialize the key
         # Add metadata
         all_analysis_data["analyzed_at"] = datetime.now().isoformat()
         all_analysis_data["url"] = content_url
@@ -200,6 +189,9 @@ def fetch_and_process_data(table_name, start_index=0, end_index=None, host=None)
             
     except Exception as e:
         print(f"Error: {str(e)}")
+
+
+
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Process data from Supabase in batches')

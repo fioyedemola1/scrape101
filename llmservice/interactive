@@ -1,0 +1,99 @@
+import subprocess
+import time
+import sys
+import requests
+import socket
+
+def is_ollama_running():
+    """Check if Ollama service is running by attempting to connect to its API."""
+    try:
+        response = requests.get('http://localhost:11434/api/tags')
+        return response.status_code == 200
+    except requests.exceptions.ConnectionError:
+        return False
+
+def run_ollama_script(model: str, prompts: list | str, delay: float = 0.1):
+    """
+    Sends a list of prompts (or path to prompt file) to `ollama run <model>` and prints responses.
+    
+    Args:
+        model (str): The Ollama model name (e.g., 'llama2:70b').
+        prompts (list or str): A list of strings or a path to a .txt file with prompts (one per line).
+        delay (float): Seconds to wait between writing and reading output.
+    """
+    # Check if Ollama is running
+    if not is_ollama_running():
+        print("Error: Ollama service is not running. Please start Ollama first.")
+        print("You can start Ollama by running 'ollama serve' in a terminal.")
+        return
+
+    # Load prompts from file if needed
+    if isinstance(prompts, str):
+        try:
+            with open(prompts) as f:
+                prompts = [line.strip() for line in f if line.strip()]
+        except FileNotFoundError:
+            print(f"Error: Prompt file '{prompts}' not found.")
+            return
+
+    # Start Ollama
+    try:
+        process = subprocess.Popen(
+            ['ollama', 'run', model],
+            stdin=subprocess.PIPE,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            text=True,
+            bufsize=1
+        )
+    except FileNotFoundError:
+        print("Error: 'ollama' command not found. Please make sure Ollama is installed and in your PATH.")
+        return
+    except Exception as e:
+        print(f"Error starting Ollama: {e}")
+        return
+
+    def read_output():
+        try:
+            while True:
+                line = process.stdout.readline()
+                if not line:
+                    break
+                print(line, end='')
+        except Exception as e:
+            print(f"Error reading output: {e}")
+
+    try:
+        for prompt in prompts:
+            print(f"\n📝 Prompt: {prompt}")
+            try:
+                process.stdin.write(prompt + "\n")
+                process.stdin.flush()
+                time.sleep(delay)
+                read_output()
+            except BrokenPipeError:
+                print("\nError: Connection to Ollama was lost. Please check if the service is still running.")
+                break
+            except Exception as e:
+                print(f"\nError processing prompt: {e}")
+                break
+
+    except KeyboardInterrupt:
+        print("\nStopped by user.")
+    except Exception as e:
+        print(f"\nError during execution: {e}")
+    finally:
+        try:
+            process.terminate()
+            process.wait(timeout=5)  # Wait for process to terminate
+        except subprocess.TimeoutExpired:
+            process.kill()  # Force kill if it doesn't terminate
+        except Exception as e:
+            print(f"Error during cleanup: {e}")
+
+if __name__ == "__main__":
+    run_ollama_script('llama2:70b', [
+        "What is Ollama?",
+        "Explain how transformers work.",
+        "What are use cases of LLaMA 2?"
+    ])
