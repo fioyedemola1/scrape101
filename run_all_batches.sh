@@ -1,8 +1,8 @@
 #!/bin/bash
 
 # Configuration
-TOTAL_RECORDS=1091
-BATCH_SIZE=25
+TOTAL_RECORDS=10
+BATCH_SIZE=3
 TOTAL_BATCHES=$(( (TOTAL_RECORDS + BATCH_SIZE - 1) / BATCH_SIZE ))  # Ceiling division
 
 echo "Starting batch processing"

@@ -119,7 +119,7 @@ class Crawler:
             
             if content_result.data:
                 logger.info(f"Successfully saved content from {self.base_url} to Supabase")
-                logger.info(f"Response data: {content_result.data}")
+                # logger.info(f"Response data: {content_result.data}")
                 return {
                     "content": content_result
                 }
@@ -163,7 +163,7 @@ class Crawler:
                         self.markdown_content = result.markdown
                         self.initial_crawl = False
                         logger.info(f"Successfully crawled and got content from {url}")
-                        logger.info(f"Content length: {len(self.markdown_content)}")
+                        # logger.info(f"Content length: {len(self.markdown_content)}")
                     else:
                         logger.info(f"Got content but not initial crawl for {url}")
                 else:
@@ -219,9 +219,9 @@ def main():
         end = start + BATCH_SIZE
         
         # Read URLs and get batch
-        with open("Buyers.csv", "r") as file:
+        with open("./Buyers.csv", "r") as file:
             all_urls = file.readlines()
-            batch_urls = all_urls[start:end]
+            batch_urls = all_urls #all_urls[start:end]
         
         # Get processing mode from environment variable
         sequential = os.getenv("SEQUENTIAL", "false").lower() == "true"

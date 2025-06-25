@@ -1,18 +1,35 @@
 #!/bin/bash
 
 # Configuration
-TOTAL_RECORDS=940  # Updated to match actual number of records
-BATCH_SIZE=25  # Number of records per batch
-TOTAL_BATCHES=$(( (TOTAL_RECORDS + BATCH_SIZE - 1) / BATCH_SIZE ))  # Ceiling division
-MAX_PARALLEL=8  # Maximum number of parallel processes
+BATCH_SIZE=140     # Number of records per batch
+TOTAL_BATCHES=3    # Exactly 3 batches
+MAX_PARALLEL=3     # Maximum number of parallel processes (one per batch)
 
-d
-HOSTS=(
-    "https://da6ad0415251d49b1a76b134ba420d9eb.clg07azjl.paperspacegradient.com/"
-    # "https://159.203.3.54"
-    # "https://your-third-host.com"  # Replace with your third host
-)
+# Check if all required API keys are set
+if [ -z "$GROQ_API_KEY_1" ] || [ -z "$GROQ_API_KEY_2" ] || [ -z "$GROQ_API_KEY_3" ]; then
+    echo "Error: All three GROQ_API_KEY environment variables must be set"
+    echo "Please set GROQ_API_KEY_1, GROQ_API_KEY_2, and GROQ_API_KEY_3"
+    exit 1
+fi
+
+# HOSTS=(
+#     # "https://da6ad0415251d49b1a76b134ba420d9eb.clg07azjl.paperspacegradient.com/"
+#     "http://jjsa2mhwjzmxzjyninbpy8.llm.internal.aceso.no"
+#     # "https://159.203.3.54"
+#     # "https://your-third-host.com"  # Replace with your third host
+# )
 HOST_COUNT=${#HOSTS[@]}
+
+# Function to get API key for specific batch
+get_api_key() {
+    local batch_index=$1
+    case $batch_index in
+        0) echo "$GROQ_API_KEY_1" ;;
+        1) echo "$GROQ_API_KEY_2" ;;
+        2) echo "$GROQ_API_KEY_3" ;;
+        *) echo "Invalid batch index" >&2; exit 1 ;;
+    esac
+}
 
 # Function to get next host in rotation
 get_next_host() {
@@ -24,13 +41,15 @@ get_next_host() {
 # Function to run a single batch
 run_batch() {
     local batch_index=$1
-    local start_record=$((batch_index * BATCH_SIZE))
-    local end_record=$((start_record + BATCH_SIZE - 1))
-    local host=$(get_next_host $batch_index)
-    echo "Starting batch $batch_index (Records $start_record-$end_record) on host: $host"
+    local api_key=$(get_api_key $batch_index)
+    echo "Starting batch $batch_index"
     
-    # Run superbase.py with the specific batch range and host
-    python3 "superbase.py" --start $start_record --end $end_record --host "$host"
+    # Run superbase.py with the corresponding API key
+    python3 "superbase.py" --token "$api_key"
+    
+    # # After superbase.py completes, run subcolumn.py with the same API key
+    # echo "Starting sub-analysis for batch $batch_index"
+    # python3 "subcolumn.py" --token "$api_key"
 }
 
 # Function to check running processes
@@ -56,13 +75,8 @@ if [ ! -z "$1" ]; then
         exit 1
     fi
 else
-    # Run batches in parallel
+    # Run all three batches in parallel
     for ((i=0; i<TOTAL_BATCHES; i++)); do
-        # Wait if we've reached max parallel processes
-        while [ $(check_running_processes) -ge $MAX_PARALLEL ]; do
-            sleep 5
-        done
-        
         # Start new batch in background
         run_batch "$i" &
         pids[$i]=$!

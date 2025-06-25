@@ -1,6 +1,11 @@
 from config import SYSTEM_PROMPT
 from ollama import Client
 from typing import Union
+from groq import Groq
+
+
+
+
 
 def query_llm(prompt :Union[str, list], client: str = None) -> str:
 
@@ -13,7 +18,8 @@ def query_llm(prompt :Union[str, list], client: str = None) -> str:
         messages.append( {"role": "user", "content": prompt })
     
     try:
-        response = client.chat(model='llama3.3:70b', messages=messages)
-        return response.model_dump()["message"]["content"]
+        response = client.chat.completions.create(model='llama-3.1-8b-instant', messages=messages)
+        return response.choices[0].message.content
     except Exception as e:
         raise e
+
